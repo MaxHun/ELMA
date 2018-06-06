@@ -11,8 +11,13 @@ endif()
 include_directories (${LEMONADE_INCLUDE_DIR})
 link_directories (${LEMONADE_LIBRARY_DIR})
 
-add_executable(FancyExample4 Example4.cpp)
+add_executable(LinearChain LinearChain.cpp)
 
-target_link_libraries(FancyExample4 LeMonADE )
+target_link_libraries(LinearChain LeMonADE )
+
+add_executable(CalcRg2 CalcRg2.cpp)
+
+target_link_libraries(CalcRg2 LeMonADE )
+
 
 
