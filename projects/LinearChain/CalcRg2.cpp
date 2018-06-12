@@ -1,12 +1,11 @@
- 
 /*--------------------------------------------------------------------------------
     ooo      L   attice-based  |
   o\.|./o    e   xtensible     | LeMonADE: An Open Source Implementation of the
  o\.\|/./o   Mon te-Carlo      |           Bond-Fluctuation-Model for Polymers
 oo---0---oo  A   lgorithm and  |
- o/./|\.\o   D   evelopment    | Copyright (C) 2013-2015 by 
+ o/./|\.\o   D   evelopment    | Copyright (C) 2013-2015 by
   o/.|.\o    E   nvironment    | LeMonADE Principal Developers (Hauke Rabbel)
-    ooo                        | 
+    ooo                        |
 ----------------------------------------------------------------------------------
 
 This file is part of LeMonADE.
@@ -27,118 +26,127 @@ along with LeMonADE.  If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------*/
 
 /* *********************************************************************
- * This example program demonstates the use of the class template
- * Vector3D, providing a simple 3 dimensional vector class.
- *
- * Vector3D is defined in src/utility/Vector3D.h
- * *********************************************************************/
+* The aim of this program is to simulate a linear chain in a periodic box
+* and to produce a .bfm-File that can be used for further analysis.
+* *********************************************************************/
+
+#include <LeMonADE/core/Ingredients.h>
+#include <LeMonADE/feature/FeatureMoleculesIO.h>
+#include <LeMonADE/feature/FeatureBox.h>
+#include <LeMonADE/feature/FeatureBondset.h>
+#include <LeMonADE/utility/RandomNumberGenerators.h>
+#include <LeMonADE/utility/TaskManager.h>
+#include <LeMonADE/updater/UpdaterSimpleSimulator.h>
+#include <LeMonADE/analyzer/AnalyzerWriteBfmFile.h>
+#include <LeMonADE/updater/moves/MoveLocalSc.h>
+#include <LeMonADE/feature/FeatureExcludedVolumeSc.h>
+#include <LeMonADE/analyzer/AnalyzerRadiusOfGyration.h>
+#include <LeMonADE/updater/UpdaterReadBfmFile.h>
 
 #include <iostream>
-
-#include <LeMonADE/utility/Vector3D.h>
+#include <string>
+#include <sstream>
+#include <cstring>
+#include "catchorg/clara/clara.hpp"
 
 int main(int argc, char* argv[]){
 
-  /* ********************************************************************
-   * Vector3D is a class template with the template parameter specifying 
-   * the underlying basic data type. For example:
-   *
-   * Vector3D<int32_t> vector32; //creates a 3d vector with 32bit integer numbers
-   * Vector3D<int64_t> vector64; //creates a 3d vector with 64bit integer numbers
-   * Vector3D<double> vectorDouble; //creates a 3d vector with double numbers
-   *
-   * there are typedefs for the most used template parameters:
-   * VectorInt3 is equivalent to Vector<int32_t>
-   * VectorUint3 is equivalent to Vector<uint32_t>
-   * VectorLong3 is equivalent to Vector<int64_t>
-   * VectorUlong3 is equivalent to Vector<uint64_t>
-   * VectorInt3 is equivalent to Vector<float>
-   * VectorInt3 is equivalent to Vector<double>
-   * and some more (look into the source code documentation for more details)
-   * *********************************************************************/
- 
-  //create some vectors for later use in the example
-  VectorInt3 vector32;
-  VectorInt3 vector32_a;
-  VectorInt3 vector32_b;
 
-  VectorDouble3 vectorDouble;
-  //one can also give the position arguments to the constructor
-  VectorInt3 vector32_c(1,0,0);
+try{
+	std::string infile  = "input.bfm";
 
-  /* ********************************************************************
-   * the vector coordinates can be accessed and modified with
-   * getX(),getY(),getZ()
-   * setX(value),...
-  * *********************************************************************/
-  //change the coordinates of the integer vector
-  vector32.setX(10);
-  vector32.setY(-12);
-  vector32.setZ(23);
-  //change the coordinates of the double vector
-  vectorDouble.setX(0.123);
-  vectorDouble.setY(-12.356);
-  vectorDouble.setZ(3.4);
 
-  //print the coordinates to the standard output
-  std::cout<<"EXAMPLE 0: Vector3D\n";
-  std::cout<<"vector32 coordinates: "
-	   <<vector32.getX()<<" "
-	   <<vector32.getY()<<" "
-	   <<vector32.getZ()<<std::endl;
-  std::cout<<"vectorDouble coordinates: "
-	   <<vectorDouble.getX()<<" "
-	   <<vectorDouble.getY()<<" "
-	   <<vectorDouble.getZ()<<std::endl;
-  
+    bool showHelp = false;
 
-  /* ********************************************************************
-   * Vector3D provides basic mathematical, assignment and logical operations:
-   * operators +,-,* (scalar product), * (vector times scalar), /, 
-   * +=, *=, /=
-   * operator ==
-   * there exists also a function to calculate the vector product
-   * the following lines shows some examples:
-   **********************************************************************/
-  vector32_a=vector32;                          //assignment
-  int32_t scalarProduct=vector32*vector32_a;    //scalar product
-  vector32_b=-10*vector32;                      //product with scalar value
-  
-  VectorInt3 vectorProduct=crossProduct(vector32,VectorInt3(1,0,0));
+    auto parser
+     =clara::Opt( infile, "input (=input.bfm)" )
+        ["-i"]["--infile"]
+        ("BFM-file to load.")
+        .required()
+    | clara::Help( showHelp );
 
-  //print results to screen standard output
-  std::cout<<"scalar product of vector32 and vector32_a: "
-	   <<scalarProduct<<std::endl;
-  std::cout<<"vector product of vector32 and (1,0 0):"
-	   <<vectorProduct.getX()<<" "
-	   <<vectorProduct.getY()<<" "
-	   <<vectorProduct.getZ()
-	   <<std::endl;
+    auto result = parser.parse( clara::Args( argc, argv ) );
+    if( !result ) {
+    std::cerr << "Error in command line: " << result.errorMessage() << std::endl;
+    exit(1);
+    }
+    else if(showHelp == true)
+    {
+        std::cout << "Simulator for the ScBFM with Ex.Vol and BondCheck" << std::endl
+                  << "maximum number of connections per monomer is 6" << std::endl
+                  << "Features used: FeatureBondset, FeatureExcludedVolumeSc<FeatureLattice<bool> >" << std::endl
+		          << "Updaters used: ReadFullBFMFile, SimpleSimulator" << std::endl
+		          << "Analyzers used: WriteBfmFile" << std::endl;
 
-  /* ********************************************************************
-   * One important feature of Vector3D is that it does not allow implicit
-   * conversion with loss of data. That means you can assign the values of
-   * an integer vector to a double vector, but not the other way around. 
-   * Trying the latter will result in a compiler error
-   **********************************************************************/
-  
-  VectorDouble3 vectorDouble_a=vector32;  //this works
-  std::cout<<"Assignment of VectorInt3 to VectorDouble3 works:\n"
-		<<"\tDouble\tInt\n"
-	   <<"x\t"<<vectorDouble_a.getX()<<"\t"<<vector32.getX()<<"\n"
-	   <<"y\t"<<vectorDouble_a.getY()<<"\t"<<vector32.getY()<<"\n"
-	   <<"z\t"<<vectorDouble_a.getZ()<<"\t"<<vector32.getZ()<<"\n"
-	   <<std::endl;
+        parser.writeToStream(std::cout);
+        exit(0);
+    }
+    else
+    {
 
-  //uncommenting the following line will result in a compiler error
-  //VectorInt3 vector32_d=vectorDouble;
 
-  /* ********************************************************************
-   * The class Vector3D provides some more useful functions for getting the 
-   * length of the vector, normalizing the vector, etc. To find out more, 
-   * look into the source code documentation.
-   ***********************************************************************/
-  
-  return 0;
-  
+
+
+    //first set up the random number generator
+    RandomNumberGenerators randomNumbers;
+    randomNumbers.seedAll();
+
+    //now set up the system:
+
+    typedef LOKI_TYPELIST_4(FeatureMoleculesIO,FeatureBox,FeatureBondset<>,FeatureExcludedVolumeSc<>) Features;
+    typedef ConfigureSystem<VectorInt3,Features> Config;
+    typedef Ingredients<Config> MyIngredients;
+    MyIngredients mySystem;
+
+    /* ****************************************************************
+      * Now we can set up the task manager with the desired tasks.
+      * We want to do two things:
+      * 1) Simulate the system. For this we use the updater
+      * UpdaterSimpleSimulator. The source code of this updater
+      * can be found in src/updater/UpdaterSimpleSimulator.h
+      * 2) Write the trajectory to a file. For this we use the analyzer
+      * AnalyzerWriteBfmFile. The source code of this analyzer can be
+      * found in src/analyzer/AnalyzerWriteBfmFile.h
+      * ***************************************************************/
+
+    //define the name of the output .dat file:
+    std::ostringstream filename;
+    filename << infile.substr(0,infile.size()-4) << "_Rg2.dat";
+
+    std::cout     << "inputfile:        " << filename.str() << std::endl
+                  << "outputfile:       " << infile << std::endl;
+
+    //create the task manager
+    TaskManager taskmanager;
+
+
+
+    //add the file output, the trajectory file name will be
+    // "LinearChain_<ChainLength>.bfm" as defined above.
+
+    taskmanager.addUpdater(new UpdaterReadBfmFile<MyIngredients>(infile,mySystem,UpdaterReadBfmFile<MyIngredients>::READ_STEPWISE),1);
+    taskmanager.addAnalyzer(new
+    AnalyzerRadiusOfGyration<MyIngredients>(mySystem,filename.str()),1);
+
+
+    taskmanager.initialize();
+    taskmanager.run();
+    taskmanager.cleanup();
+
+    /* **************************************************************
+      * The program should produce among others a file called
+      * polymer.bfm. This contains the trajectory. You can visualize
+      * the trajectory using the provided LemonadeViewerFLTK from
+      * the projects folder.
+      * *************************************************************/
+
+}}
+	catch(std::exception& err){std::cerr<<err.what();}
+	return 0;
 }
+
+
+
+
+
+
