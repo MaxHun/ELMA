@@ -74,6 +74,7 @@ try{
 	uint32_t save_interval=500;
 	uint32_t eps = 0;
 	uint32_t NCos = 1000;
+	double   c = 1;// concenttration of the Cosolvent in 1/1000
 	uint32_t L = 256;
 
     bool showHelp = false;
@@ -118,9 +119,9 @@ try{
         ["-l"]["--bsize"]
         ("size of the quadratic box")
         .required()
-    | clara::Opt(NCos, "cosolvent number" )
-        ["-o"]["--ncos"]
-        ("number of cosolvent monomers")
+    | clara::Opt(c, "cosolvent concentration" )
+        ["-c"]["--con"]
+        ("concentration of the cosolvent in 1/1000")
         .required()
     | clara::Opt(eps, "interaction strength" )
         ["-e"]["--eps"]
@@ -150,7 +151,14 @@ try{
     else
     {
 
-std::cout << eps << std::endl;
+    //std::cout << eps << std::endl;
+
+
+    NCos = (int)(((c/1000)*L*L*L - 8*N)/8); // Calculate NCos, c gets devided by 1000
+
+
+    std::cout << NCos << std::endl;
+
 
 
     //first set up the random number generator
@@ -198,11 +206,15 @@ std::cout << eps << std::endl;
 
 
     std::ostringstream filename;
-    filename << "CosolvedLC_" << N << "_" << NCos << "_" << eps << ".bfm";
+    filename << "CosolvedLC_" << N << "_" << c << "_" << eps << ".bfm";
 
     std::cout     << "outputfile:       " << filename.str() << std::endl
                   << "max_mcs:       " << max_mcs << std::endl
-                  << "save_interval: " << save_interval << std::endl;
+                  << "save_interval: " << save_interval << std::endl
+                  << "cosolvent concentration (1/1000): " << c << std::endl
+                  << "intteraction strength (1/1000*kT):" << eps << std::endl
+                  << "boxsize: " << L << std::endl;
+
 
 
     // Print the value of eps:
