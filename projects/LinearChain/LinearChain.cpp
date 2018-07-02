@@ -42,7 +42,7 @@ along with LeMonADE.  If not, see <http://www.gnu.org/licenses/>.
 #include <LeMonADE/feature/FeatureExcludedVolumeSc.h>
 #include <LeMonADE/feature/FeatureLattice.h>
 #include <LeMonADE/updater/UpdaterAddLinearChains.h>
-#include <LeMonADE/updater/UpdaterAddCosolvent.h>
+#include <UpdaterAddCosolvent.h>
 #include <LeMonADE/feature/FeatureAttributes.h>
 
 
