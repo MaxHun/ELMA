@@ -46,8 +46,9 @@ along with LeMonADE.  If not, see <http://www.gnu.org/licenses/>.
 #include <LeMonADE/feature/FeatureAttributes.h>
 #include <LeMonADE/feature/FeatureNNInteractionSc.h>
 #include <LeMonADE/feature/FeatureLattice.h>
-//#include <LeMonADE/feature/FeatureNNInteractionSc.h>
-#include <LeMonADE/updater/UpdaterAddCosolvent.h>
+#include <LeMonADE/feature/FeatureFixedMonomers.h>
+#include <LeMonADE/feature/FeatureNNInteractionSc.h>
+#include <UpdaterAddCosolvent.h>
 
 #include <iostream>
 #include <string>
@@ -130,6 +131,7 @@ try{
     auto result = parser.parse( clara::Args( argc, argv ) );
 
 
+
     if( !result ) {
     std::cerr << "Error in command line: " << result.errorMessage() << std::endl;
     exit(1);
@@ -148,7 +150,7 @@ try{
     else
     {
 
-
+std::cout << eps << std::endl;
 
 
     //first set up the random number generator
@@ -158,25 +160,17 @@ try{
 
     //now set up the system
 
-    typedef LOKI_TYPELIST_6(FeatureMoleculesIO,FeatureBox,FeatureBondset<>,FeatureLattice<>,FeatureExcludedVolumeSc<>,FeatureAttributes) Features;
+    typedef LOKI_TYPELIST_5(FeatureMoleculesIO,FeatureBox,FeatureBondset<>,
+                            FeatureAttributes, FeatureNNInteractionSc<FeatureLattice>) Features;
     typedef ConfigureSystem<VectorInt3,Features> Config;
     typedef Ingredients<Config> MyIngredients;
     MyIngredients mySystem;
 
 
 
-    if (N<64)
-    {
-    mySystem.setBoxX(64);
-    mySystem.setBoxY(64);
-    mySystem.setBoxZ(64);
-    }
-    else
-    {
-    mySystem.setBoxX(N+1);
-    mySystem.setBoxY(N+1);
-    mySystem.setBoxZ(N+1);
-    }
+    mySystem.setBoxX(L);
+    mySystem.setBoxY(L);
+    mySystem.setBoxZ(L);
 
 
     mySystem.setPeriodicX(true);
@@ -185,7 +179,12 @@ try{
 
     mySystem.modifyBondset().addBFMclassicBondset();
 
+    //set the NNInteraction. The interaction energy is required in units of k*T
+    mySystem.setNNInteraction(1,3,-(eps/1000.0));
+
     mySystem.synchronize(mySystem);
+
+
     /* ****************************************************************
       * Now we can set up the task manager with the desired tasks.
       * We want to do two things:
