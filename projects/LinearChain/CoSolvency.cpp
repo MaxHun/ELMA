@@ -185,6 +185,11 @@ try{
     mySystem.setPeriodicY(true);
     mySystem.setPeriodicZ(true);
 
+    // Checking periodicity for filename:
+    int perX = mySystem.isPeriodicX();
+    int perY = mySystem.isPeriodicY();
+    int perZ = mySystem.isPeriodicZ();
+
     mySystem.modifyBondset().addBFMclassicBondset();
 
     //set the NNInteraction. The interaction energy is required in units of k*T
@@ -206,14 +211,15 @@ try{
 
 
     std::ostringstream filename;
-    filename << "CosolvedLC_" << N << "_" << c << "_" << eps << ".bfm";
+    filename << "CosolvedLC_N" << N << "_c" << c << "_e" << eps << "Per" << perX << perY << perZ << ".bfm";
 
     std::cout     << "outputfile:       " << filename.str() << std::endl
                   << "max_mcs:       " << max_mcs << std::endl
                   << "save_interval: " << save_interval << std::endl
                   << "cosolvent concentration (1/1000): " << c << std::endl
                   << "intteraction strength (1/1000*kT):" << eps << std::endl
-                  << "boxsize: " << L << std::endl;
+                  << "boxsize: " << L << std::endl
+                  << "periodicity(XYZ): " << perX << perY << perZ << std::endl;
 
 
 
