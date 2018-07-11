@@ -19,6 +19,10 @@ add_executable(CalcRg2 CalcRg2.cpp)
 
 target_link_libraries(CalcRg2 LeMonADE )
 
+add_executable(CalcRg2Cos CalcRg2Cos.cpp)
+
+target_link_libraries(CalcRg2Cos LeMonADE )
+
 add_executable(CoSolvency CoSolvency.cpp)
 
 target_link_libraries(CoSolvency LeMonADE )
