@@ -211,7 +211,8 @@ try{
 
 
     std::ostringstream filename;
-    filename << "CosolvedLC_N" << N << "_c" << c << "_e" << eps << "Per" << perX << perY << perZ << ".bfm";
+    filename << "CosolvedLC_N" << N << "_c" << c << "_e" << eps << "_Per" << perX 
+             << perY << perZ << "_L" << L << ".bfm";
 
     std::cout     << "outputfile:       " << filename.str() << std::endl
                   << "max_mcs:       " << max_mcs << std::endl
