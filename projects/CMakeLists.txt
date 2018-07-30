@@ -8,7 +8,7 @@ add_subdirectory(Example4)
 
 add_subdirectory(LinearChain)
 
-#add_subdirectory(WangLandauSimulatorNextNeighbor)
+add_subdirectory(WangLandauSimulatorNextNeighbor)
 
 
 

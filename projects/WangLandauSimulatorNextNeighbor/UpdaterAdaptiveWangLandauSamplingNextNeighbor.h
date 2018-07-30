@@ -109,7 +109,7 @@ public:
 	void setFullConvergenceThreshold(double threshold){fullFlatnessThreshold=threshold;}
 	
 	//! return the threshold for complete convergence of histogram (for final simulation convergence)
-	void getFullConvergenceThreshold() const {return fullFlatnessThreshold;}
+	double getFullConvergenceThreshold() const {return fullFlatnessThreshold;}
 	
 	//! get the number of pmf updates performed up to now on the bias potential
 	uint32_t getNPerformedUpdates()const{return nUpdatesPerformed;}
