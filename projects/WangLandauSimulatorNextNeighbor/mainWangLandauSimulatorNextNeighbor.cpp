@@ -165,6 +165,10 @@ int main(int argc, char* argv[])
 	typedef Ingredients<Config> Ing;
 	Ing myIngredients;
 
+	myIngredients.modifyVisitsEnergyStates().reset(min_histogram, max_histogram, bins_histogram);//-128*6*4,1,4*6*4*4*8*2*256);
+	myIngredients.modifyTotalVisitsEnergyStates().reset(min_histogram, max_histogram, bins_histogram);
+	myIngredients.modifyHGLnDOS().reset(min_histogram, max_histogram, bins_histogram);
+
 
 	TaskManager taskmanager;
 	taskmanager.addUpdater(new UpdaterReadBfmFile<Ing>(infile,myIngredients,UpdaterReadBfmFile<Ing>::READ_LAST_CONFIG_SAVE),0);
@@ -178,16 +182,18 @@ int main(int argc, char* argv[])
 					       1);
 	//taskmanager.addAnalyzer(new AnalyzerWriteBfmFile<Ing>(outfile,myIngredients));
 
-	//(-3072.0, 1.0,
-	myIngredients.modifyVisitsEnergyStates().reset(min_histogram, max_histogram, bins_histogram);//-128*6*4,1,4*6*4*4*8*2*256);
-	myIngredients.modifyTotalVisitsEnergyStates().reset(min_histogram, max_histogram, bins_histogram);
-	myIngredients.modifyHGLnDOS().reset(min_histogram, max_histogram, bins_histogram);
-	//myIngredients.setModificationFactor(modFactor);
 
 	taskmanager.initialize();
 	taskmanager.run();
 	taskmanager.cleanup();
 	
+	outfile=infile+"_final";
+
+	AnalyzerWriteBfmFile<Ing> ABFM(outfile,myIngredients);
+	ABFM.initialize();
+	ABFM.execute();
+	ABFM.cleanup();
+
 	}
 	catch(std::exception& err){std::cerr<<err.what();}
 	return 0;
