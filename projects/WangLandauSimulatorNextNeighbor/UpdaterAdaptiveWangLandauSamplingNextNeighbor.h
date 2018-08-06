@@ -1,5 +1,5 @@
-#ifndef ADAPTIVE_UPDATER_WANG_LANDAU_SAMPLING_NEXT_NEIGHBOR_H
-#define ADAPTIVE_UPDATER_WANG_LANDAU_SAMPLING_NEXT_NEIGHBOR_H
+#ifndef ADAPTIVE_UPDATER_WANG_LANDAU_SAMPLING_NEXT_NEIGHBOR__H
+#define ADAPTIVE_UPDATER_WANG_LANDAU_SAMPLING_NEXT_NEIGHBOR__H
 
 #include <limits>
 #include <iomanip>
@@ -9,6 +9,44 @@
 
 #include "Histogram1D.h"
 
+/* ****************************************************************************
+ * Simulator for adaptive umbrella sampling along a (1D) reaction coordinate.
+ * The simulator runs standart BFM, while during  the simulation recording a 
+ * histogram of the reaction coordinate. 
+ * 
+ * When the histogram has converged by three given criteria (described below),
+ * a bias potential is constructed from the histogram, the histogram is 
+ * reset to zero, and the procedure is repeated with the bias potential. 
+ * This procedure is carried out with updates on the bias potential based on 
+ * collected histograms, until the histogram becomes flat. Once this is the case
+ * the bias potential is the inverted free energy profile along the coordinate.
+ * 
+ * The coordinate itsself is not specified in this updater. It requires 
+ * Ingredients to have an interface with the signature 
+ * double getCurrentReactionCoordinate()
+ * Such an interface is provided by the FeatureBilayerDistancePotential. In that
+ * case the coordinate is the distance to the bilayer. Other features could be 
+ * used, provided they have the above described interface.
+ * 
+ * For the convergence of the histogram, three criteria are used to judge whether
+ * the histogram has (locally) converged, i.e. does not change much any more.
+ * These criteria are:
+ * 1) relative change of the mean value of the expectation value of the coordinate.
+ * <x>=sum(histogram(x) * x).
+ * 2) relative change of the variance of the histogram coordinate
+ * <dx**2>=<x**2>-<x>**2
+ * 3) relative change of the square deviation from the mean of the histogram
+ * itsself   <dH**2>=< (h(x) - <h>)**2 >
+ * For these checks, the normalized histogram is used, and it is checked whether
+ * these values changed in the last two update trials by more than some threshold
+ * percentage.
+ * 
+ * For the absolute convergence, the square deviation of the histogram from the
+ * mean is required to be less than some absolute value ( e.g. 0.1)
+ * 
+ * The threshold values can be set by the appropriate interfaces or the 
+ * constructor.
+ * ****************************************************************************/
 
 /**
  * @file
@@ -93,7 +131,7 @@ public:
 
 		dumpHistogram(std::string(ingredients.getName() + prefixWindow + "_iteration" + itr.str() +  "_final_histogram.dat"));
 		dumpTotalHistogram(std::string(ingredients.getName() + prefixWindow + "_iteration" + itr.str() +  "_final_totalhistogram.dat"));
-		dumpHGLnDOS(std::string(ingredients.getName() + prefixWindow + "_iteration" + itr.str() +  "_final_HGLnDOS.dat"));
+		dumpHGLnDOS(std::string(ingredients.getName() + prefixWindow + "_iteration" + itr.str() +  "_final_HGLnDOS.dat"), ingredients.getMinWin(), ingredients.getMaxWin());
 		dumpConvergenceProgress();
 		//updateModificationFactor();
 	};
@@ -133,7 +171,7 @@ private:
 	void updateModificationFactor();
 
 	//! write the currently logarithm of Density of States DOS i.e. file named HGLnDOS.dat
-	void dumpHGLnDOS(std::string prefix="");
+	void dumpHGLnDOS(std::string prefix="", double min= std::numeric_limits<double>::min(), double max= std::numeric_limits<double>::max());
 
 	//! check if the histogram has converged according to chosen criteria
 	bool histogramConverged();
@@ -268,6 +306,7 @@ nsteps(steps)
 	meanSeries.resize(0);
 	flatnessSeries.resize(0);
 	ingredients.setModificationFactor(initialModificationFactor);
+	ingredients.setWindowState(false, ingredients.getVisitsEnergyStates().getMinCoordinate(), ingredients.getVisitsEnergyStates().getMaxCoordinate());
 }
  
  
@@ -287,7 +326,11 @@ bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::ex
 		return false;
 	}
 	
-	if(simulationConverged) return false;
+	if(simulationConverged)
+		{
+			std::cout<<"Simulation converged! " << std::endl;
+			return false;
+		}
 	
 	//simulation loop
 	for(int n=0;n<nsteps;n++){
@@ -299,7 +342,8 @@ bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::ex
 				{
 
 					 dumpHistogram(std::string(ingredients.getName() + prefixWindow + "_tmp_histogram.dat"));
-					 dumpHGLnDOS(std::string(ingredients.getName() + prefixWindow + "_tmp_HGLnDOS.dat"));
+					 dumpHGLnDOS(std::string(ingredients.getName() + prefixWindow + "_tmp_HGLnDOS.dat"), ingredients.getMinWin(), ingredients.getMaxWin());
+					 std::cout << "dump HGLnDOS " << ingredients.getMinWin() << "   " << ingredients.getMaxWin() << std::endl;
 				}
 			if(histogramConverged()==true){
 				
@@ -327,7 +371,7 @@ bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::ex
 					std::stringstream filenametmp;
 					filenametmp<<ingredients.getName() << prefixWindow << "_iteration" << std::setw(2) << std::setfill('0') << iteration << "_HGLnDOS" << "_mcs"<<ingredients.getMolecules().getAge() << ".dat";
 
-					dumpHGLnDOS(filenametmp.str());
+					dumpHGLnDOS(filenametmp.str(), ingredients.getMinWin(), ingredients.getMaxWin());
 
 					//dumpHGLnDOS(std::string(ingredients.getName()));
 				}
@@ -347,6 +391,7 @@ bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::ex
 		}
 		
 		
+		//std::cout << "1MCS";
 		//do one monte carlo sweep
 		for(int m=0;m<ingredients.getMolecules().size();m++)
 		{
@@ -361,8 +406,9 @@ bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::ex
 				ingredients.rejectMove(ingredients);
 			}
 		}
+		//std::cout << " done" << std::endl;
 		
-		if( (ingredients.isEnergyInWindow() == false ) && (ingredients.getInternalEnergyCurrentConfiguration(ingredients)+ingredients.getHGLnDOS().getBinwidth() < maxWindow) && (ingredients.getInternalEnergyCurrentConfiguration(ingredients)-ingredients.getHGLnDOS().getBinwidth() > minWindow) )
+		if( (ingredients.isEnergyInWindow() == false ) && (ingredients.getInternalEnergyCurrentConfiguration(ingredients) < maxWindow+2*ingredients.getHGLnDOS().getBinwidth()) && (ingredients.getInternalEnergyCurrentConfiguration(ingredients) > minWindow-2*ingredients.getHGLnDOS().getBinwidth()) )
 		{
 			std::cout << "RW is in energy window: [" << minWindow << " ; " << maxWindow << "] with " <<  ingredients.getInternalEnergyCurrentConfiguration(ingredients) << std::endl;
 			// RW is in energy window
@@ -414,10 +460,17 @@ bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::ex
 
 
 	if(ingredients.getModificationFactor() < std::exp(std::pow(10,-8)) )
+	{
+		std::cout<<"Simulation converged! " << std::endl;
 		return false;
+	}
 	else
+	{
+		std::cout<<"Simulation approach convergence.. " << std::endl;
 		return true;
+	}
 }
+
 
 
 // initialize only sets the histogram and bias potential to 0
@@ -449,7 +502,11 @@ void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::re
 template<class IngredientsType, class MoveType>
 bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::histogramConverged()
 {
-	
+	// only check for flat histogram if RW is in desired energy space
+	if(ingredients.isEnergyInWindow() == false)
+		return false;
+
+	std::cout<<"Check histogram flatness" << std::endl;
 
 	std::vector<double> currentHistogramState=ingredients.getVisitsEnergyStates().getVectorValues();//histogram.getVectorValues();
 
@@ -459,29 +516,70 @@ bool UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::hi
 
 	for(size_t n=0;n<currentHistogramState.size();n++)
 	{
-		if(currentHistogramState.at(n) != 0.0)
+		if( (ingredients.getVisitsEnergyStates().getCenterOfBin(n) >= ingredients.getMinWin()) && (ingredients.getVisitsEnergyStates().getCenterOfBin(n) <= ingredients.getMaxWin()) )
 		{
-			mean += currentHistogramState.at(n);
-			entries++;
+			if(currentHistogramState.at(n) != 0.0)
+			{
+				mean += currentHistogramState.at(n);
+				entries++;
+			}
 		}
 	}
 
 	mean = mean/(1.0*entries);
 	
-	if(entries <= 1)
+	// this can only happen if the energy window is to restrictive - auto-adjust and broaden the window
+	std::vector<double> currentTotalHistogramState=ingredients.getTotalVisitsEnergyStates().getVectorValues();//histogram.getVectorValues();
+	int entriesTotal = 0;
+	for(size_t n=0;n<currentTotalHistogramState.size();n++)
+		{
+			if( (ingredients.getTotalVisitsEnergyStates().getCenterOfBin(n) >= ingredients.getMinWin()) && (ingredients.getTotalVisitsEnergyStates().getCenterOfBin(n) <= ingredients.getMaxWin()) )
+			{
+				if(currentTotalHistogramState.at(n) != 0.0)
+				{
+					entriesTotal++;
+				}
+			}
+		}
+
+	if(entriesTotal <= 10)
+	{
+		// broaden the window in 5% in every direction
+		double bordershift = (ingredients.getMaxWin()-ingredients.getMinWin())/20.0;
+
+		if(bordershift < ingredients.getVisitsEnergyStates().getBinwidth())
+			bordershift = ingredients.getVisitsEnergyStates().getBinwidth();
+
+		ingredients.setMinMaxWin(ingredients.getMinWin()-bordershift, ingredients.getMaxWin()+bordershift);
+
+		//check new boundary
+		if(ingredients.getMaxWin() >= ingredients.getVisitsEnergyStates().getMaxCoordinate())
+			ingredients.setMinMaxWin(ingredients.getMinWin(), ingredients.getVisitsEnergyStates().getMaxCoordinate());
+
+		if(ingredients.getMinWin() <= ingredients.getVisitsEnergyStates().getMinCoordinate())
+			ingredients.setMinMaxWin(ingredients.getVisitsEnergyStates().getMinCoordinate(), ingredients.getMaxWin());
+
+		std::cout << "auto-adjusting window to interval [" << ingredients.getMinWin() << " ; " << ingredients.getMaxWin() << "]" << std::endl;
+
 		return false;
+	}
 
 	bool isFlat = true;
 
 	for(size_t n=0;n<currentHistogramState.size();n++)
+	{
+		if( (ingredients.getVisitsEnergyStates().getCenterOfBin(n) >= ingredients.getMinWin()) && (ingredients.getVisitsEnergyStates().getCenterOfBin(n) <= ingredients.getMaxWin()) )
 		{
 			if( currentHistogramState.at(n) != 0.0)
-			//	if(std::abs((currentHistogramState.at(n)-mean)/mean) > 0.33)
-					if(currentHistogramState.at(n)/mean < 0.8)
-			{
+				//	if(std::abs((currentHistogramState.at(n)-mean)/mean) > 0.33)
+				if(currentHistogramState.at(n)/mean < 0.85)
+				{
 					isFlat = false;
-			}
+
+					return false;
+				}
 		}
+	}
 
 	return isFlat;
 
@@ -678,8 +776,9 @@ void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::du
 
 
 	for(size_t n=0;n<currentHistogram.size();n++){
-		if(currentHistogram[n] != 0)
-			file<< std::setprecision(15) << bins[n] << "\t" << std::setprecision(15) << currentHistogram[n]<<"\n";
+		if( (ingredients.getVisitsEnergyStates().getCenterOfBin(n) >= ingredients.getMinWin()) && (ingredients.getVisitsEnergyStates().getCenterOfBin(n) <= ingredients.getMaxWin()) )
+			if(currentHistogram[n] != 0)
+				file<< std::setprecision(15) << bins[n] << "\t" << std::setprecision(15) << currentHistogram[n]<<"\n";
 	}
 	file.close();
 	
@@ -704,8 +803,9 @@ void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::du
 	file << "# " << std::endl;
 
 	for(size_t n=0;n<currentHistogram.size();n++){
-		if(currentHistogram[n] != 0)
-			file << std::setprecision(15) << bins[n] << "\t" << std::setprecision(15) << currentHistogram[n]<<"\n";
+		if( (ingredients.getTotalVisitsEnergyStates().getCenterOfBin(n) >= ingredients.getMinWin()) && (ingredients.getTotalVisitsEnergyStates().getCenterOfBin(n) <= ingredients.getMaxWin()) )
+			if(currentHistogram[n] != 0)
+				file << std::setprecision(15) << bins[n] << "\t" << std::setprecision(15) << currentHistogram[n]<<"\n";
 	}
 	file.close();
 
@@ -714,7 +814,7 @@ void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::du
 
 //write current bias potential to file
 template<class IngredientsType,class MoveType>
-void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::dumpHGLnDOS(std::string prefix)
+void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::dumpHGLnDOS(std::string prefix, double _min, double _max)
 {
 	std::stringstream filename;
 	filename<< prefix;// << "_HGLnDOS" << "_mcs"<<ingredients.getMolecules().getAge()<<".dat";
@@ -732,8 +832,10 @@ void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::du
 	file << "# " << std::endl;
 
 	for(size_t n=0;n<currentHGLnDOS.size();n++){
-		if(currentHGLnDOS[n].ReturnN() != 0)	
-			file << std::setprecision(15) << bins[n] << "\t" << std::setprecision(15) <<currentHGLnDOS[n].ReturnM1()<<"\n";
+		//if( (ingredients.getHGLnDOS().getCenterOfBin(n) >= ingredients.getMinWin()) && (ingredients.getHGLnDOS().getCenterOfBin(n) <= ingredients.getMaxWin()) )
+		if( (ingredients.getHGLnDOS().getCenterOfBin(n) >= _min) && (ingredients.getHGLnDOS().getCenterOfBin(n) <= _max) )
+			if(currentHGLnDOS[n].ReturnN() != 0)
+				file << std::setprecision(15) << bins[n] << "\t" << std::setprecision(15) <<currentHGLnDOS[n].ReturnM1()<<"\n";
 	}
 	file.close();
 
@@ -756,6 +858,7 @@ void UpdaterAdaptiveWangLandauSamplingNextNeighbor<IngredientsType,MoveType>::du
 	file.close();
 	
 }
+
 
 
 #endif

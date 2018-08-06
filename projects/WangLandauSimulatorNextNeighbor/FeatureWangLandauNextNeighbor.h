@@ -1,8 +1,9 @@
-#ifndef FEATURE_WANG_LANDAU_NEXT_NEIGHBOR_H
-#define FEATURE_WANG_LANDAU_NEXT_NEIGHBOR_H
+#ifndef FEATURE_WANG_LANDAU_NEXT_NEIGHBOR__H
+#define FEATURE_WANG_LANDAU_NEXT_NEIGHBOR__H
 
 #include <vector>
-#include<iostream>
+#include <iostream>
+#include <algorithm>    // for min_element
 
 #include <LeMonADE/updater/moves/MoveBase.h>
 #include <LeMonADE/updater/moves/MoveLocalSc.h>
@@ -53,6 +54,9 @@ public:
 			  probabilityLookup[m][n]=1.0;
 		        }
 		    }
+
+		  lnDOSmin = 1.01;
+		  numHistoVisits = 1.0;
 	}
 	
 	virtual ~FeatureWangLandauNextNeighbor(){}
@@ -152,7 +156,19 @@ public:
 	    template <class IngredientsType>
 	    void exportWrite(AnalyzerWriteBfmFile <IngredientsType>& fileWriter) const;
 
-	
+	    double getMaxWin() const {
+	    		return maxWin;
+	    	}
+
+	    	double getMinWin() const {
+	    		return minWin;
+	    	}
+
+	void setMinMaxWin(double minWin, double maxWin) {
+		this->minWin = minWin;
+		this->maxWin = maxWin;
+	}
+
 private:
 	
 	
@@ -168,6 +184,8 @@ private:
 
 	Histogram1D HG_TotalVisitsEnergyStates;
 	
+	//Histogram1D HG_VisitsEnergyStates;
+
 
   //! Interaction energies between monomer types. Max. type=255 given by max(uint8_t)=255
   double interactionTable[256][256];
@@ -198,6 +216,9 @@ private:
   //! Access to array probabilityLookup with extra checks in Debug mode
   double getProbabilityFactor(int32_t typeA,int32_t typeB) const;
 
+
+  double lnDOSmin;
+  double numHistoVisits;
 
 };
 
@@ -295,7 +316,7 @@ bool FeatureWangLandauNextNeighbor<LatticeClassType>::checkMove(const Ingredient
 	{
 		diffEnergy = calculateInteractionDifference(ingredients,move);
 
-		if( (((Energy+diffEnergy-HG_LnDOS.getBinwidth()) > minWin) && ((Energy+diffEnergy+HG_LnDOS.getBinwidth()) < maxWin)) && ( (Energy-HG_LnDOS.getBinwidth() > minWin) && (Energy+HG_LnDOS.getBinwidth() < maxWin) ))
+		if( (((Energy+diffEnergy) > minWin-2.0*HG_LnDOS.getBinwidth()) && ((Energy+diffEnergy) < maxWin+2.0*HG_LnDOS.getBinwidth())) && ( (Energy > minWin-2.0*HG_LnDOS.getBinwidth()) && (Energy < maxWin+2.0*HG_LnDOS.getBinwidth()) ))
 		{
 			//std::cout << "EnergyOld: " << Energy <<"\t EnergyNew: " << (Energy+diffEnergy)  << " \t dEnergy: " << (diffEnergy) << std::endl;
 
@@ -325,13 +346,70 @@ void FeatureWangLandauNextNeighbor<LatticeClassType>::applyMove(IngredientsType&
 	//EnergyOld=EnergyNew;
 	Energy += diffEnergy;
 
-	HG_LnDOS.resetValue(Energy, HG_LnDOS.getCountAt(Energy)+std::log(modificationFactor));
-	HG_VisitsEnergyStates.addValue(Energy, 1.0);
-	HG_TotalVisitsEnergyStates.addValue(Energy, 1.0);
+	if(	HG_LnDOS.getNumCountAt(Energy) != 0)
+	{
+		if(windowingState == false)
+		{
+			HG_LnDOS.resetValue(Energy, HG_LnDOS.getCountAt(Energy)+std::log(modificationFactor));
+			HG_VisitsEnergyStates.addValue(Energy, 1.0);
+			HG_TotalVisitsEnergyStates.addValue(Energy, 1.0);
+		}
+		else
+		{
+			if(  (Energy > minWin-4.0*HG_LnDOS.getBinwidth()) && (Energy < maxWin+4.0*HG_LnDOS.getBinwidth()) )
+			{
+				HG_LnDOS.resetValue(Energy, HG_LnDOS.getCountAt(Energy)+std::log(modificationFactor));
+				HG_VisitsEnergyStates.addValue(Energy, 1.0);
+				HG_TotalVisitsEnergyStates.addValue(Energy, 1.0);
+			}
+		}
+		//if(lnDOSmin < HG_LnDOS.getCountAt(Energy))
+		//	lnDOSmin = HG_LnDOS.getCountAt(Energy);
+	}
+	else
+	{
+		//find minimum
 
-	//HG_LnDOS.resetValue(EnergyNew, HG_LnDOS.getCountAt(EnergyNew)+std::log(modificationFactor));
-	//HG_VisitsEnergyStates.addValue(EnergyNew, 1.0);
-	//HG_TotalVisitsEnergyStates.addValue(EnergyNew, 1.0);
+		double eln = HG_LnDOS.getFirstMomentInBin(0);
+		double visits = 1.0;
+		for (size_t n=1; n < HG_LnDOS.getNBins(); n++) {
+			if ((HG_LnDOS.getFirstMomentInBin(n) < eln && HG_LnDOS.getFirstMomentInBin(n) != 0 ) || eln == 0)
+			{
+				eln = HG_LnDOS.getFirstMomentInBin(n);
+				visits = HG_VisitsEnergyStates.getCountInBin(n);
+			}
+		}
+
+		if(visits != 0)
+		{
+			numHistoVisits = visits;
+			lnDOSmin = eln;
+		}
+
+		//std::cout << "lnDOSmin " << lnDOSmin  << " visits: " << numHistoVisits <<  std::endl;
+		//std::cout << "e " << e   << " visits: " << visits <<  std::endl;
+
+
+
+
+		//if(lnDOSmin < HG_LnDOS.getCountAt(Energy))
+		//				lnDOSmin = HG_LnDOS.getCountAt(Energy);
+		if(windowingState == false)
+		{
+			HG_LnDOS.resetValue(Energy, lnDOSmin );
+			HG_VisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+			HG_TotalVisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+		}
+		else
+		{
+			if(  (Energy > minWin-4.0*HG_LnDOS.getBinwidth()) && (Energy < maxWin+4.0*HG_LnDOS.getBinwidth()) )
+			{
+				HG_LnDOS.resetValue(Energy, lnDOSmin );
+				HG_VisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+				HG_TotalVisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+			}
+		}
+	}
 
 }
 
@@ -339,28 +417,70 @@ template<template<typename> class LatticeClassType>
 template<class IngredientsType>
 void FeatureWangLandauNextNeighbor<LatticeClassType>::rejectMove(IngredientsType& ingredients)//, const MoveLocalSc& move)
 {
-	//update the book keeping variables in case the move was accepted
-	//EnergyNew = EnergyOld;
-	
-	//if(EnergyNew < boundaryEnergy)
-	if(windowingState == false)
+	if(	HG_LnDOS.getNumCountAt(Energy) != 0)
 	{
-	//HG_LnDOS.resetValue(EnergyOld, HG_LnDOS.getCountAt(EnergyOld)+std::log(std::pow(modificationFactor,0.003)));
-	HG_LnDOS.resetValue(Energy, HG_LnDOS.getCountAt(Energy)+std::log(modificationFactor));
-	HG_VisitsEnergyStates.addValue(Energy, 1.0);
-	HG_TotalVisitsEnergyStates.addValue(Energy, 1.0);
-	}
-	else
-	{
-		//if( (Energy > minWin) && (Energy < maxWin) )
+		if(windowingState == false)
 		{
 			HG_LnDOS.resetValue(Energy, HG_LnDOS.getCountAt(Energy)+std::log(modificationFactor));
 			HG_VisitsEnergyStates.addValue(Energy, 1.0);
 			HG_TotalVisitsEnergyStates.addValue(Energy, 1.0);
+		}
+		else
+		{
+			if(  (Energy > minWin-4.0*HG_LnDOS.getBinwidth()) && (Energy < maxWin+4.0*HG_LnDOS.getBinwidth()) )
+			{
+				HG_LnDOS.resetValue(Energy, HG_LnDOS.getCountAt(Energy)+std::log(modificationFactor));
+				HG_VisitsEnergyStates.addValue(Energy, 1.0);
+				HG_TotalVisitsEnergyStates.addValue(Energy, 1.0);
+			}
+		}
+		//if(lnDOSmin < HG_LnDOS.getCountAt(Energy))
+		//	lnDOSmin = HG_LnDOS.getCountAt(Energy);
+	}
+	else
+	{
+		//find minimum
 
+		double eln = HG_LnDOS.getFirstMomentInBin(0);
+		double visits = 1.0;
+		for (size_t n=1; n < HG_LnDOS.getNBins(); n++) {
+			if ((HG_LnDOS.getFirstMomentInBin(n) < eln && HG_LnDOS.getFirstMomentInBin(n) != 0 ) || eln == 0)
+			{
+				eln = HG_LnDOS.getFirstMomentInBin(n);
+				visits = HG_VisitsEnergyStates.getCountInBin(n);
+			}
+		}
+
+		if(visits != 0)
+		{
+			numHistoVisits = visits;
+			lnDOSmin = eln;
+		}
+
+		//std::cout << "lnDOSmin " << lnDOSmin  << " visits: " << numHistoVisits <<  std::endl;
+		//std::cout << "e " << e   << " visits: " << visits <<  std::endl;
+
+
+
+
+		//if(lnDOSmin < HG_LnDOS.getCountAt(Energy))
+		//				lnDOSmin = HG_LnDOS.getCountAt(Energy);
+		if(windowingState == false)
+		{
+			HG_LnDOS.resetValue(Energy, lnDOSmin );
+			HG_VisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+			HG_TotalVisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+		}
+		else
+		{
+			if(  (Energy > minWin-4.0*HG_LnDOS.getBinwidth()) && (Energy < maxWin+4.0*HG_LnDOS.getBinwidth()) )
+			{
+				HG_LnDOS.resetValue(Energy, lnDOSmin );
+				HG_VisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+				HG_TotalVisitsEnergyStates.addValue(Energy, numHistoVisits);//lnDOSmin/std::log(modificationFactor));//1.0);
+			}
 		}
 	}
-
 }
 
 template<template<typename> class LatticeClassType>
