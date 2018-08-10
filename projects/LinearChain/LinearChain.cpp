@@ -43,7 +43,12 @@ along with LeMonADE.  If not, see <http://www.gnu.org/licenses/>.
 #include <LeMonADE/feature/FeatureLattice.h>
 #include <LeMonADE/updater/UpdaterAddLinearChains.h>
 #include <UpdaterAddCosolvent.h>
-#include <LeMonADE/feature/FeatureAttributes.h>
+#include <LeMonADE/feature/FeatureAttributes.h> 
+#include <LeMonADE/feature/FeatureExcludedVolumeSc.h>
+#include <LeMonADE/feature/FeatureNNInteractionSc.h>
+#include <LeMonADE/feature/FeatureLattice.h>
+
+
 
 
 #include <iostream>
@@ -69,7 +74,7 @@ try{
         .required()
     | clara::Opt( [&max_mcs](int const m)
         {
-         if (m <= 0)
+         if (m < 0)
          {
             return clara::ParserResult::runtimeError("Simulation time must be greater than 0");
          }
@@ -133,26 +138,21 @@ try{
     //changes the simulation conditions. What it provides is the
     //basic functionalities for writing BFM files. So, in most cases
     //you are going to use this feature in simulations.
-    typedef LOKI_TYPELIST_2(FeatureMoleculesIO,
-                            FeatureAttributes) Features;
+//    typedef LOKI_TYPELIST_3(FeatureMoleculesIO,
+//                            FeatureAttributes, FeatureExcludedVolumeSc<>) Features; 
+    typedef LOKI_TYPELIST_5(FeatureMoleculesIO,FeatureBox,FeatureBondset<>,
+                            FeatureAttributes, FeatureNNInteractionSc<FeatureLattice>) Features;
+
     typedef ConfigureSystem<VectorInt3,Features> Config;
     typedef Ingredients<Config> MyIngredients;
     MyIngredients mySystem;
 
 
-
-    if (N<64)
-    {
-    mySystem.setBoxX(64);
-    mySystem.setBoxY(64);
-    mySystem.setBoxZ(64);
-    }
-    else
-    {
-    mySystem.setBoxX(N+1);
-    mySystem.setBoxY(N+1);
-    mySystem.setBoxZ(N+1);
-    }
+  
+    mySystem.setBoxX(128);
+    mySystem.setBoxY(128);
+    mySystem.setBoxZ(128);
+    
 
 
     mySystem.setPeriodicX(true);
@@ -162,7 +162,8 @@ try{
     mySystem.modifyBondset().addBFMclassicBondset();
 
     mySystem.synchronize(mySystem);
-
+    
+    mySystem.setNNInteraction(1,1,10);
 
 
 //    //Setting up Linear chains by hand:
@@ -211,12 +212,12 @@ try{
     //updater to add Linear Chain:
 
     taskmanager.addUpdater(new
-    UpdaterAddLinearChains<MyIngredients>(mySystem,1,N),0);
+    UpdaterAddLinearChains<MyIngredients>(mySystem,1,N,1,1),0);
 
     //updater to add cosolvent:
 
-    taskmanager.addUpdater(new
-    UpdaterAddCosolvent<MyIngredients>(mySystem,100,5),0);
+    //taskmanager.addUpdater(new
+    //UpdaterAddCosolvent<MyIngredients>(mySystem,100,5),0);
         //add the simulator
     //the syntax says: the simulator should simulate mySystem
     //every time it is executed, it simulates for 10000 steps
@@ -233,8 +234,11 @@ try{
 
 
 
-    taskmanager.initialize();
-    taskmanager.run(max_mcs/save_interval);
+    taskmanager.initialize(); 
+    if(max_mcs > 0){
+    taskmanager.run(max_mcs/save_interval);}
+    if(max_mcs == 0){
+    taskmanager.run(0);}
     taskmanager.cleanup();
 
     /* **************************************************************
