@@ -64,13 +64,17 @@ try{
 	uint32_t N  = 100;
 	uint32_t max_mcs=100;
 	uint32_t save_interval=100;
-
+        double eps =0.0;
     bool showHelp = false;
 
     auto parser
     = clara::Opt( N, "polymer length" )
         ["-n"]["--len"]
         ("Length of the polymer")
+        .required()
+    | clara::Opt( eps, "interaction energy" )
+        ["-e"]["--eps"]
+        ("ineraction energy between the monomers in 1/1000*kT")
         .required()
     | clara::Opt( [&max_mcs](int const m)
         {
@@ -163,7 +167,7 @@ try{
 
     mySystem.synchronize(mySystem);
     
-    mySystem.setNNInteraction(1,1,10);
+    mySystem.setNNInteraction(1,1,eps/1000.0);
 
 
 //    //Setting up Linear chains by hand:
