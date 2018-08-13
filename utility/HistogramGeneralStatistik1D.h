@@ -91,6 +91,11 @@ public:
 			return histogram[bin].ReturnM2();
 		}
 
+	double getNumCountInBin(size_t bin) const
+		{
+			return histogram[bin].ReturnN();
+		}
+
 	double getNumCountAt(double x) const
 	{
 		return histogram[getBinNo(x)].ReturnN();
@@ -174,6 +179,21 @@ public:
 			return histogram;
 		}
 
+	std::vector<double> getVectorValuesMean() const
+			{
+
+				std::vector<double> statisticMean;
+				statisticMean.resize(nBins);
+
+					for(size_t n=0;n<nBins;n++)
+					{
+						statisticMean[n]=histogram[n].ReturnM1();
+					}
+
+					return statisticMean;
+
+
+			}
 
 
 		std::vector<double> getVectorBins() const
