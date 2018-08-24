@@ -10,5 +10,6 @@ add_subdirectory(LinearChain)
 
 add_subdirectory(WangLandauSimulatorNextNeighbor)
 
+add_subdirectory(WangLandauSimulatorNextNeighborSimulationRun)
 
 
