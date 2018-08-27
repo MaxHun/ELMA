@@ -142,7 +142,7 @@ bool Analyzer_ChainWalking_RG2<IngredientsType>::execute()
 		for (int k= 0; k < ingredients.getMolecules().size(); k++)
 		{
 			for (int l= k; l < ingredients.getMolecules().size(); l++)
-                 if((ingredients.getMolecules()[l].getAttributeTag()==1) && (ingredients.getMolecules()[k].getAttributeTag()==1))
+                 if((ingredients.getMolecules()[l].getAttributeTag()!=3) && (ingredients.getMolecules()[k].getAttributeTag()!=3))
 			{
 				Rg2_x += (ingredients.getMolecules()[k].getX()-ingredients.getMolecules()[l].getX())*(ingredients.getMolecules()[k].getX()-ingredients.getMolecules()[l].getX());
 				Rg2_y += (ingredients.getMolecules()[k].getY()-ingredients.getMolecules()[l].getY())*(ingredients.getMolecules()[k].getY()-ingredients.getMolecules()[l].getY());
@@ -195,7 +195,7 @@ bool Analyzer_ChainWalking_RG2<IngredientsType>::execute()
 				sumBondLength2 += BondLength*BondLength;
 				nValuesBondLength2++;
 				}*/
-					if((ingredients.getMolecules()[k].getAttributeTag()==1) && (ingredients.getMolecules()[ingredients.getMolecules().getNeighborIdx(k, l)].getAttributeTag()==1))
+					if((ingredients.getMolecules()[k].getAttributeTag()!=3) && (ingredients.getMolecules()[ingredients.getMolecules().getNeighborIdx(k, l)].getAttributeTag()!=3))
 					{
 					double BondLength = (ingredients.getMolecules()[k]-(ingredients.getMolecules()[ingredients.getMolecules().getNeighborIdx(k, l)])).getLength();
 					sumBondLength2 += BondLength*BondLength;

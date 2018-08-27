@@ -56,6 +56,7 @@ int main(int argc, char* argv[]){
 
 try{
 	std::string infile  = "input.bfm";
+        int t = 0;
 
 
     bool showHelp = false;
@@ -64,6 +65,10 @@ try{
      =clara::Opt( infile, "input (=input.bfm)" )
         ["-i"]["--infile"]
         ("BFM-file to load.")
+        .required() 
+    | clara::Opt(t, "evaluation time")
+        ["-e"]["--evt"]
+        ("First <integer> MCS will not be considered for calculation of Rg2")
         .required()
     | clara::Help( showHelp );
 
@@ -128,7 +133,7 @@ try{
 
     taskmanager.addUpdater(new UpdaterReadBfmFile<MyIngredients>(infile,mySystem,UpdaterReadBfmFile<MyIngredients>::READ_STEPWISE),1);
     taskmanager.addAnalyzer(new
-    Analyzer_ChainWalking_RG2<MyIngredients>(mySystem,0),1);
+    Analyzer_ChainWalking_RG2<MyIngredients>(mySystem,t),1);
 
 
     taskmanager.initialize();
