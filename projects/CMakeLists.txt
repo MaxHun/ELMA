@@ -9,3 +9,5 @@ add_subdirectory(WangLandauSimulatorNextNeighbor)
 add_subdirectory(WangLandauSimulatorNextNeighborSimulationRun)
 
 add_subdirectory(AnalyzerHeatCapacity)
+
+add_subdirectory(AnalyzerAdsorptionIsotherm)
