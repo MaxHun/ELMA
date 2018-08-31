@@ -152,7 +152,7 @@ bool Analyzer_ChainWalking_RG2<IngredientsType>::execute()
 			}
 			//monomerCounter++;
 			// only count the monomers which contribute to RG2:
-			if((ingredients.getMolecules()[k].getAttributeTag()==1))
+			if((ingredients.getMolecules()[k].getAttributeTag()!=3))
 				monomerCounter++;
 		}
 		/*if(monomerCounter != ingredients.getMolecules().size())
